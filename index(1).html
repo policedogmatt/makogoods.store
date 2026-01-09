@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakoGoods Store</title>
+    
+    <!-- PayPal SDK -->
+    <!-- Replace YOUR_CLIENT_ID with your actual PayPal Client ID in your PayPal Dashboard -->
+    <script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID&currency=USD"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .page-fade { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .nav-link.active { color: #0ea5e9; font-weight: 600; border-bottom: 2px solid #0ea5e9; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Global Navigation -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#home" class="flex items-center transition hover:opacity-80">
+                <img src="https://i.postimg.cc/13YCMm2N/Mako-Goods-1.png" alt="MakoGoods Logo" class="h-10 w-auto">
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#home" class="nav-link text-slate-600 hover:text-sky-500 transition pb-1">Home</a>
+                <a href="#products" class="nav-link text-slate-600 hover:text-sky-500 transition pb-1">Products</a>
+                <a href="#about" class="nav-link text-slate-600 hover:text-sky-500 transition pb-1">About</a>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <a href="#cart" class="relative text-slate-600 hover:text-sky-500 transition p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span id="cart-count" class="absolute top-0 right-0 bg-sky-500 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center font-bold border-2 border-white">0</span>
+                </a>
+                <button id="mobile-menu-btn" class="md:hidden text-slate-600 p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                </button>
+            </div>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-slate-100 p-4 space-y-4 shadow-xl">
+            <a href="#home" class="block text-slate-600 font-medium">Home</a>
+            <a href="#products" class="block text-slate-600 font-medium">Products</a>
+            <a href="#about" class="block text-slate-600 font-medium">About</a>
+        </div>
+    </header>
+
+    <!-- Content Slot -->
+    <main id="main-content" class="container mx-auto px-6 py-8 flex-grow">
+        <div class="flex justify-center items-center py-20">
+            <div class="animate-pulse text-slate-400">Loading Store...</div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-10 mt-12">
+        <div class="container mx-auto px-6 text-center">
+            <div class="flex justify-center space-x-6 mb-6">
+                 <img src="https://i.postimg.cc/13YCMm2N/Mako-Goods-1.png" alt="MakoGoods" class="h-8 opacity-50 grayscale">
+            </div>
+            <p class="text-slate-500 text-sm">&copy; 2026 MakoGoods Store. Professional Dropshipping.</p>
+            <div class="mt-4 flex justify-center space-x-4 text-xs text-slate-400">
+                <a href="#admin" class="hover:text-sky-500">Admin Login</a>
+                <span>&bull;</span>
+                <a href="#about" class="hover:text-sky-500">Contact Support</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Instant Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl transform translate-y-32 transition-transform duration-500 z-[100] flex items-center space-x-3">
+        <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+        <span id="toast-msg">Added to cart</span>
+    </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// --- INITIAL STATE ---
+const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'makogoods-default';
+let db, auth, productsRef;
+let products = [];
+let cart = JSON.parse(localStorage.getItem('mako_cart')) || [];
+
+const main = document.getElementById('main-content');
+const cartCount = document.getElementById('cart-count');
+
+// --- ROUTING SYSTEM ---
+const routes = {
+    '#home': renderHome,
+    '#products': renderProducts,
+    '#about': renderAbout,
+    '#cart': renderCart,
+    '#checkout': renderCheckout,
+    '#thankyou': renderThankYou,
+    '#admin': renderAdmin
+};
+
+function router() {
+    const hash = window.location.hash || '#home';
+    const [path, id] = hash.split('/');
+    
+    if (path === '#products' && id) {
+        renderProductDetail(id);
+    } else {
+        const render = routes[path] || renderHome;
+        render();
+    }
+    
+    // UI Updates
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.getAttribute('href') === path));
+    const mobileMenu = document.getElementById('mobile-menu');
+    if(mobileMenu) mobileMenu.classList.add('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// --- RENDER FUNCTIONS ---
+function renderHome() {
+    main.innerHTML = `
+        <div class="page-fade space-y-16">
+            <section class="relative bg-slate-900 rounded-[2rem] overflow-hidden min-h-[500px] flex items-center p-8 md:p-16">
+                <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1512909006721-3d6018887383?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center"></div>
+                <div class="relative z-10 max-w-2xl">
+                    <span class="inline-block bg-sky-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-6 uppercase tracking-widest">Holiday Sale 2026</span>
+                    <h1 class="text-5xl md:text-7xl font-bold text-white leading-tight mb-6">Quality Goods for Every Occasion.</h1>
+                    <p class="text-xl text-slate-300 mb-10 leading-relaxed">Fast shipping, curated selections, and AI-powered service. Welcome to the future of retail.</p>
+                    <a href="#products" class="bg-white text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-sky-500 hover:text-white transition-all transform hover:scale-105 inline-block shadow-2xl">Shop All Products</a>
+                </div>
+            </section>
+            
+            <section>
+                <div class="flex justify-between items-end mb-10">
+                    <h2 class="text-3xl font-bold">New Arrivals</h2>
+                    <a href="#products" class="text-sky-500 font-semibold hover:underline">View All &rarr;</a>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    ${products.slice(0,3).map(p => productCard(p)).join('')}
+                </div>
+            </section>
+        </div>
+    `;
+}
+
+function renderProducts() {
+    main.innerHTML = `
+        <div class="page-fade">
+            <h1 class="text-4xl font-bold mb-10">Product Catalog</h1>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                ${products.length ? products.map(p => productCard(p)).join('') : '<div class="col-span-full py-20 text-center text-slate-400">Inventory loading...</div>'}
+            </div>
+        </div>
+    `;
+}
+
+function productCard(p) {
+    return `
+        <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 group transition hover:shadow-xl">
+            <a href="#products/${p.id}">
+                <div class="overflow-hidden rounded-2xl mb-4 h-64">
+                    <img src="${p.imageUrl}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="${p.name}">
+                </div>
+                <h3 class="font-bold text-lg mb-1 truncate">${p.name}</h3>
+                <div class="flex justify-between items-center">
+                    <p class="text-sky-600 font-bold text-lg">$${parseFloat(p.price).toFixed(2)}</p>
+                    <span class="text-xs bg-slate-50 text-slate-400 px-2 py-1 rounded">Fast Shipping</span>
+                </div>
+            </a>
+        </div>
+    `;
+}
+
+function renderProductDetail(id) {
+    const p = products.find(item => item.id === id);
+    if (!p) { main.innerHTML = `<div class="py-20 text-center">Product not found. <a href="#home" class="text-sky-500">Go Home</a></div>`; return; }
+
+    main.innerHTML = `
+        <div class="page-fade max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-start">
+            <div class="sticky top-24">
+                <img src="${p.imageUrl}" class="w-full rounded-[2.5rem] shadow-2xl border border-slate-100" alt="${p.name}">
+            </div>
+            <div class="py-6">
+                <nav class="flex text-sm text-slate-400 mb-6">
+                    <a href="#products" class="hover:text-sky-500">Products</a>
+                    <span class="mx-2">/</span>
+                    <span class="text-slate-800 font-medium">${p.name}</span>
+                </nav>
+                <h1 class="text-5xl font-extrabold mb-6 leading-tight">${p.name}</h1>
+                <div class="text-3xl text-sky-600 font-black mb-8">$${parseFloat(p.price).toFixed(2)}</div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 mb-8">
+                    <h4 class="font-bold mb-3">Product Description</h4>
+                    <p class="text-slate-600 leading-relaxed">${p.description}</p>
+                </div>
+                <button onclick="window.addToCart('${p.id}')" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg hover:bg-sky-600 transition shadow-lg flex items-center justify-center space-x-3">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                    <span>Add to Shopping Bag</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderCart() {
+    if (!cart.length) {
+        main.innerHTML = `<div class="page-fade text-center py-32"><h2 class="text-3xl font-bold text-slate-300 mb-6">Your bag is currently empty</h2><a href="#products" class="bg-sky-500 text-white px-8 py-3 rounded-full font-bold">Discover Products &rarr;</a></div>`;
+        return;
+    }
+    
+    const subtotal = cart.reduce((sum, item) => {
+        const prod = products.find(p => p.id === item.id);
+        return sum + (prod ? prod.price * item.quantity : 0);
+    }, 0);
+
+    main.innerHTML = `
+        <div class="page-fade max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold mb-10">Shopping Bag</h1>
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="p-8 space-y-8">
+                    ${cart.map(item => {
+                        const p = products.find(prod => prod.id === item.id);
+                        if (!p) return '';
+                        return `
+                            <div class="flex items-center space-x-6 pb-8 border-b border-slate-50 last:border-0 last:pb-0">
+                                <img src="${p.imageUrl}" class="w-24 h-24 rounded-2xl object-cover shadow-sm">
+                                <div class="flex-grow">
+                                    <h3 class="font-bold text-lg">${p.name}</h3>
+                                    <p class="text-sky-600 font-bold">$${p.price.toFixed(2)}</p>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <div class="bg-slate-50 px-4 py-2 rounded-xl font-bold text-sm">Qty: ${item.quantity}</div>
+                                    <button onclick="window.removeFromCart('${p.id}')" class="text-red-400 hover:text-red-600 p-2">
+                                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="bg-slate-50 p-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div class="text-center md:text-left">
+                        <span class="text-slate-400 uppercase tracking-widest text-xs font-bold">Total Balance</span>
+                        <div class="text-4xl font-black text-slate-900">$${subtotal.toFixed(2)}</div>
+                    </div>
+                    <a href="#checkout" class="w-full md:w-auto bg-sky-500 text-white px-12 py-5 rounded-2xl font-bold text-xl hover:bg-sky-600 transition shadow-lg text-center">Checkout Now</a>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderCheckout() {
+    const total = cart.reduce((sum, item) => {
+        const p = products.find(prod => prod.id === item.id);
+        return sum + (p ? p.price * item.quantity : 0);
+    }, 0).toFixed(2);
+
+    main.innerHTML = `
+        <div class="page-fade max-w-lg mx-auto bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100">
+            <h1 class="text-3xl font-bold mb-8 text-center">Complete Payment</h1>
+            <div class="mb-10 p-6 bg-sky-50 rounded-3xl flex justify-between items-center">
+                <span class="text-slate-600 font-medium">Order Subtotal:</span>
+                <span class="text-2xl font-black text-sky-700">$${total}</span>
+            </div>
+            <div id="paypal-inject"></div>
+        </div>
+    `;
+
+    if (window.paypal) {
+        paypal.Buttons({
+            createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: total } }] }),
+            onApprove: (data, actions) => actions.order.capture().then(() => {
+                cart = []; saveCart(); window.location.hash = '#thankyou';
+            })
+        }).render('#paypal-inject');
+    }
+}
+
+function renderThankYou() {
+    main.innerHTML = `<div class="page-fade text-center py-32"><h1 class="text-5xl font-black mb-6">Payment Received!</h1><p class="text-xl text-slate-500 max-w-md mx-auto">We've sent a confirmation email. Your goods are being prepared for shipping.</p><a href="#home" class="mt-10 inline-block bg-slate-900 text-white px-10 py-4 rounded-full font-bold">Return to Store</a></div>`;
+}
+
+function renderAbout() {
+    main.innerHTML = `<div class="page-fade max-w-3xl mx-auto"><h1 class="text-4xl font-black mb-10">MakoGoods Logistics</h1><p>Professional Dropshipping.</p></div>`;
+}
+
+function renderAdmin() {
+    main.innerHTML = `
+        <div class="page-fade max-w-xl mx-auto bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h1 class="text-3xl font-black mb-4">AI Product Wizard</h1>
+            <div class="space-y-4">
+                <input id="ai-name" class="w-full p-4 bg-slate-50 rounded-2xl border-0" placeholder="Product Title">
+                <textarea id="ai-features" class="w-full p-4 bg-slate-50 rounded-2xl border-0" rows="5" placeholder="Supplier features..."></textarea>
+                <input id="ai-image" class="w-full p-4 bg-slate-50 rounded-2xl border-0" placeholder="Image URL">
+                <input id="ai-cost" type="number" class="w-full p-4 bg-slate-50 rounded-2xl border-0" placeholder="Cost ($)">
+                <button id="ai-gen-btn" class="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-sky-500 transition w-full">Create Listing</button>
+                <div id="ai-status" class="text-center text-sm font-medium pt-4"></div>
+            </div>
+        </div>
+    `;
+    document.getElementById('ai-gen-btn').onclick = handleAIWizard;
+}
+
+// --- APP LOGIC ---
+window.addToCart = (id) => {
+    const item = cart.find(i => i.id === id);
+    if (item) item.quantity++;
+    else cart.push({ id, quantity: 1 });
+    saveCart();
+    showToast("Added to shopping bag");
+};
+
+window.removeFromCart = (id) => {
+    cart = cart.filter(i => i.id !== id);
+    saveCart();
+    renderCart();
+};
+
+function saveCart() {
+    localStorage.setItem('mako_cart', JSON.stringify(cart));
+    cartCount.textContent = cart.reduce((s, i) => s + i.quantity, 0);
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.remove('translate-y-32');
+    setTimeout(() => t.classList.add('translate-y-32'), 3000);
+}
+
+// AI INTEGRATION
+async function handleAIWizard() {
+    const btn = document.getElementById('ai-gen-btn');
+    const status = document.getElementById('ai-status');
+    const name = document.getElementById('ai-name').value;
+    const feats = document.getElementById('ai-features').value;
+    const cost = document.getElementById('ai-cost').value;
+    const img = document.getElementById('ai-image').value;
+
+    if (!name || !feats || !cost || !img) { status.textContent = "Please fill all fields"; return; }
+
+    btn.disabled = true;
+    status.textContent = "Writing persuasive copy...";
+
+    try {
+        const apiKey = "";
+        const prompt = `Create a professional product listing for: ${name}. Features: ${feats}. Suggest price based on cost $${cost}. Response: JSON { "name": "Title", "description": "Desc", "price": 0.00 }`;
+        
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" }
+            })
+        });
+
+        const data = await res.json();
+        const listing = JSON.parse(data.candidates[0].content.parts[0].text);
+        
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), {
+            ...listing,
+            imageUrl: img,
+            createdAt: Date.now()
+        });
+
+        status.textContent = "Successfully listed!";
+    } catch (e) {
+        status.textContent = "Error: " + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// --- CORE BOOTSTRAP ---
+async function start() {
+    if (firebaseConfig.apiKey) {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        
+        const authAction = async () => {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+          else await signInAnonymously(auth);
+        };
+        await authAction();
+        
+        onAuthStateChanged(auth, (user) => {
+            if (!user) return;
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'products'), (snap) => {
+                products = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                router();
+            });
+        });
+    }
+    saveCart();
+    router();
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    if(menuBtn) menuBtn.onclick = () => document.getElementById('mobile-menu').classList.toggle('hidden');
+}
+
+window.onhashchange = router;
+start();
+</script>
+</body>
+</html>
